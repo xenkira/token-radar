@@ -149,6 +149,62 @@ function gasNote(chain: string): string {
   return `fees on ${chain} are typically $0.05–$0.50 per transaction, so a full setup costs under $2 in gas`;
 }
 
+/** A per-transaction gas estimate in USD, from the chain's own fee level. */
+function txCostUsd(chain: string): number {
+  switch (chain) {
+    case 'Ethereum': return 15;
+    case 'Solana': return 0.01;
+    case 'Tron': return 2;
+    case 'Bitcoin': return 5;
+    default: return 0.25;
+  }
+}
+
+/** A bridge fee estimate in USD when a plan spans more than one chain. */
+function bridgeFeeUsd(p: SnapshotProtocol): number {
+  if (p.chains.length < 2) return 0;
+  return Math.min(2 + 1.5 * (p.chains.length - 1), 8);
+}
+
+function fmtMoney(n: number): string {
+  if (n < 1) return `$${n.toFixed(2)}`;
+  if (n < 10) return `$${n.toFixed(1)}`;
+  return `$${Math.round(n)}`;
+}
+
+function fmtMins(mins: number): string {
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/**
+ * What the farm plan costs and how long it takes, derived from the snapshot
+ * figures alone: the primary chain sets the gas level, the chain count sets
+ * the bridge fee, and the plan's shape (setup, verify, core action, four
+ * weekly returns, a second-chain position, wind-down) is the same for every
+ * protocol. Position capital ($300–$1,000) is excluded: it stays yours.
+ */
+export function stepBudget(p: SnapshotProtocol): { steps: { cost: number; mins: number }[]; totalCost: number; totalMins: number } {
+  const chain = p.chains[0] ?? 'Ethereum';
+  const second = p.chains[1] ?? chain;
+  const gas = txCostUsd(chain);
+  const gas2 = txCostUsd(second);
+  const bridge = bridgeFeeUsd(p);
+  const steps = [
+    { cost: 2 * gas, mins: 30 },
+    { cost: 0, mins: 10 },
+    { cost: 3 * gas, mins: 20 },
+    { cost: 4 * gas, mins: 60 },
+    { cost: bridge + 2 * gas2, mins: 20 },
+    { cost: 3 * gas, mins: 30 },
+  ];
+  const totalCost = steps.reduce((a, s) => a + s.cost, 0);
+  const totalMins = steps.reduce((a, s) => a + s.mins, 0);
+  return { steps, totalCost, totalMins };
+}
+
 /** The category-specific core action: what "using" this protocol actually means. */
 function coreAction(p: SnapshotProtocol): { verb: string; detail: string } {
   const cat = p.category ?? '';
@@ -216,13 +272,15 @@ export function farmSteps(p: SnapshotProtocol): string[] {
   const chainList = p.chains.slice(0, 4).join(', ');
   const core = coreAction(p);
   const cat = p.category ?? 'DeFi';
+  const b = stepBudget(p);
+  const tail = (i: number): string => ` (Cost: ${fmtMoney(b.steps[i]!.cost)} in fees · Time: ~${fmtMins(b.steps[i]!.mins)})`;
   const steps = [
-    `Set up a fresh wallet for ${p.name} farming, fund it with $300–$1,000 in a major asset on ${chain}, and ${gasNote(chain)}; allow about 30 minutes for the first setup.`,
-    `Open the official ${p.name} app on ${chain} and verify the URL and contract addresses from its docs before connecting; never connect through a link from social media.`,
-    `To ${core.verb}: ${core.detail}. This is the step most likely to count, so do it with real funds, not a dust amount.`,
-    `Return weekly for 4 weeks: repeat the core action or add $50–$200 to the position, check the ${cat} position on ${chainList} each time, and keep a note of dates, amounts and transaction hashes.`,
-    `Use a second chain where ${p.name} runs (${chainList}) for one smaller $50–$150 position, so the activity is not confined to a single chain; this takes about 15–20 minutes plus gas.`,
-    `Wind down carefully at the end of the month: close or reduce positions gradually over 2–3 days, keep at least one small active position if the protocol is still live, and export your full transaction history as your record.`,
+    `Set up a fresh wallet for ${p.name} farming, fund it with $300–$1,000 in a major asset on ${chain}, and ${gasNote(chain)}; allow about 30 minutes for the first setup. Whole plan: about ${fmtMoney(b.totalCost)} in fees and ${fmtMins(b.totalMins)} of hands-on time over a month, excluding position capital, which stays yours.${tail(0)}`,
+    `Open the official ${p.name} app on ${chain} and verify the URL and contract addresses from its docs before connecting; never connect through a link from social media.${tail(1)}`,
+    `To ${core.verb}: ${core.detail}. This is the step most likely to count, so do it with real funds, not a dust amount.${tail(2)}`,
+    `Return weekly for 4 weeks: repeat the core action or add $50–$200 to the position, check the ${cat} position on ${chainList} each time, and keep a note of dates, amounts and transaction hashes.${tail(3)}`,
+    `Use a second chain where ${p.name} runs (${chainList}) for one smaller $50–$150 position, so the activity is not confined to a single chain; this takes about 15–20 minutes plus gas.${tail(4)}`,
+    `Wind down carefully at the end of the month: close or reduce positions gradually over 2–3 days, keep at least one small active position if the protocol is still live, and export your full transaction history as your record.${tail(5)}`,
   ];
   for (const s of steps) {
     if (s.trim().length < 20 || s.trim().length > 600) throw new Error(`farm step length out of range for ${p.slug}`);
