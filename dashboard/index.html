@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Radar — pre-token protocols ranked by implied value</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Token Radar</h1>
+    <p class="sub">Pre-token protocols ranked by implied value — from the sealed snapshot, not from a name list.</p>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+<section class="model" id="model"></section>
+<section class="controls">
+  <label>Search <input id="q" type="search" placeholder="protocol name or slug"></label>
+  <label>Category <select id="cat"><option value="">All categories</option></select></label>
+  <label>Chain <select id="chain"><option value="">All chains</option></select></label>
+  <label>Sort <select id="sort">
+    <option value="rank">Rank</option>
+    <option value="value">Implied value</option>
+    <option value="tvl">TVL</option>
+    <option value="change">7d change</option>
+  </select></label>
+  <label class="check"><input id="watch" type="checkbox"> Watchlist only</label>
+</section>
+<main class="layout">
+  <div class="tablewrap">
+    <table id="board">
+      <thead><tr><th>#</th><th>Protocol</th><th>Category</th><th>TVL</th><th>7d</th><th>Implied value</th><th>Watchlist</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="count" id="count"></p>
+  </div>
+  <aside class="detail" id="detail" aria-live="polite"></aside>
+</main>
+<footer><p>Implied value is this entry's own claim, computed from the snapshot's TVL, 7d change, age and chain count. It is not a prediction that a token will launch. A protocol is shown as recording no token; the snapshot cannot prove it has none.</p></footer>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
